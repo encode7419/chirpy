@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"sync/atomic"
 )
 
@@ -48,6 +49,24 @@ func respondWithError(w http.ResponseWriter, code int, msg string) {
 	respondWithJSON(w, code, respBody)
 }
 
+func chirpProfanityFilter(msg string) string {
+	profanities := map[string]string{
+		"kerfuffle": "****",
+		"sharbert":  "****",
+		"fornax":    "****",
+	}
+	splitMsgs := strings.Split(msg, " ")
+
+	for x, m := range splitMsgs {
+		if _, ok := profanities[strings.ToLower(m)]; ok {
+			splitMsgs[x] = "****"
+		}
+	}
+	joinedMsgs := strings.Join(splitMsgs, " ")
+	return joinedMsgs
+
+}
+
 func validateChirpHandler(w http.ResponseWriter, req *http.Request) {
 	type parameters struct {
 		Body string `json:"body"`
@@ -65,10 +84,11 @@ func validateChirpHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	type validResp struct {
-		Valid bool `json:"valid"`
+		CleanedBody string `json:"cleaned_body"`
 	}
+	cleanedStr := chirpProfanityFilter(params.Body)
 	validJson := validResp{
-		Valid: true,
+		CleanedBody: cleanedStr,
 	}
 
 	respondWithJSON(w, 200, validJson)
