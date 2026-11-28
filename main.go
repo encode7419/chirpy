@@ -9,8 +9,10 @@ import (
 	"os"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/encode7419/chirpy/internal/database"
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
@@ -27,6 +29,38 @@ func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 	})
 }
 
+type User struct {
+	ID        uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Email     string    `json:"email"`
+}
+
+func (cfg *apiConfig) userReg(w http.ResponseWriter, req *http.Request) {
+	type emailStr struct {
+		Email string `json:"email"`
+	}
+	decoder := json.NewDecoder(req.Body)
+	params := emailStr{}
+	err := decoder.Decode(&params)
+	if err != nil {
+		log.Printf("Error decoding parameters: %s", err)
+		respondWithError(w, 500, "Couldn't decode parameters")
+		return
+	}
+	user, err := cfg.db.CreateUser(req.Context(), params.Email)
+	if err != nil {
+		log.Printf("Couldn't create user")
+		return
+	}
+	copiedUser := User{
+		ID:        user.ID,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+		Email:     user.Email,
+	}
+	respondWithJSON(w, 201, copiedUser)
+}
 func (cfg *apiConfig) apiCounter(w http.ResponseWriter, req *http.Request) {
 	msg := "<html>\n  <body>\n    <h1>Welcome, Chirpy Admin</h1>\n    <p>Chirpy has been visited %d times!</p>\n  </body>\n</html>"
 	fmt.Fprintf(w, msg, cfg.fileserverHits.Load())
